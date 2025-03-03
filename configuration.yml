@@ -1,0 +1,20 @@
+data_source my_datasource:
+  type: postgres
+  host: aws-0-eu-west-3.pooler.supabase.com
+  username: postgres.qqehshljyphhoqsayegh
+  password: Dardilly2023*
+  database: postgres
+  schema: public
+  quote_identifiers: true  # Ajoutez cette ligne
+  sampler:
+    samples_limit: 20
+    include_tables: 
+      - btob_customers
+      - btoc_customers
+
+soda_cloud:
+  # Use cloud.soda.io for EU region
+  # Use cloud.us.soda.io for US region
+  host: cloud.soda.io
+  api_key_id: 047fdefc-98fa-408a-a97f-2efc61861bfc
+  api_key_secret: trj4lExFsL36DxkqMIsD2MBIFNRVCgK6uO-lIG3eEkWQzhxgfgxTGA

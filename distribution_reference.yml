@@ -1,0 +1,43 @@
+chiffre_affaires_dro:
+  dataset: btob_customers
+  column: chiffre_affaires
+  distribution_type: continuous
+  distribution_reference:
+    weights:
+    - 0.0
+    - 0.30434782608695654
+    - 0.2608695652173913
+    - 0.30434782608695654
+    - 0.043478260869565216
+    - 0.0
+    - 0.0
+    - 0.08695652173913043
+    bins:
+    - 5500000.0
+    - 21433285714.285713
+    - 42861071428.57143
+    - 64288857142.85714
+    - 85716642857.14285
+    - 107144428571.42856
+    - 128572214285.71428
+    - 150000000000.0
+
+chiffreaffaire_dro:
+  dataset: btoc_customers
+  column: chiffreaffaire
+  distribution_type: continuous
+  distribution_reference:
+    weights:
+    - 0.0
+    - 0.5
+    - 0.2857142857142857
+    - 0.14285714285714285
+    - 0.0
+    - 0.07142857142857142
+    bins:
+    - 17.0
+    - 211.6
+    - 406.2
+    - 600.8
+    - 795.4
+    - 990.0

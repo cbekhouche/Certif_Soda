@@ -1,0 +1,7 @@
+templates:
+  - name: missing_values_check
+    description: Vérifie si la colonne ${column_name} ne contient aucune valeur manquante.
+    author: cbekhouche
+    metric: custom_missing_count
+    query: |
+      SELECT COUNT(*) FROM ${table} WHERE ${column_name} IS NULL

@@ -1,0 +1,31 @@
+name: Scan for data quality
+
+on: pull_request
+jobs:
+  soda_scan:
+    runs-on: ubuntu-latest
+    name: Run Soda Scan
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      
+#### si ça marche sur ce scan simple je veux refaire ça avec dbt
+          
+
+      - name: Perform Soda Scan
+        uses: sodadata/soda-github-action@v1
+        env:
+          SODA_CLOUD_API_KEY: ${{ secrets.SODA_CLOUD_API_KEY }}
+          SODA_CLOUD_API_SECRET: ${{ secrets.SODA_CLOUD_API_SECRET }}
+          POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+        with:
+          soda_library_version: v1.0.4
+          data_source: postgres
+          configuration: ../../../configuration.yml
+          checks: ../../../checks.yml
+         
+         
+# Test Soda workflow".
