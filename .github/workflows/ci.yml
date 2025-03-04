@@ -28,7 +28,7 @@ jobs:
           
 
       - name: Perform Soda Scan
-        uses: sodadata/soda-github-action@v1
+        uses: sodadata/soda-github-action@v2
         env:
           SODA_CLOUD_API_KEY: ${{ secrets.SODA_CLOUD_API_KEY }}
           SODA_CLOUD_API_SECRET: ${{ secrets.SODA_CLOUD_API_SECRET }}
@@ -39,8 +39,9 @@ jobs:
         with:
           soda_library_version: v1.0.4
           data_source: postgres
-          configuration: ../../../configuration.yml
-          checks: ../../../checks.yml
+          configuration: ./configuration.yml
+          checks: ./checks.yml
+
          
 
 # Test Soda workflow".
