@@ -28,7 +28,7 @@ jobs:
           
 
       - name: Perform Soda Scan
-        uses: sodadata/soda-github-action@v2
+        uses: sodadata/soda-github-action@main
         env:
           SODA_CLOUD_API_KEY: ${{ secrets.SODA_CLOUD_API_KEY }}
           SODA_CLOUD_API_SECRET: ${{ secrets.SODA_CLOUD_API_SECRET }}
@@ -44,4 +44,5 @@ jobs:
 
          
 
-# Test Soda workflow".
+# Test Soda workflow"//
+# v2 vers main
