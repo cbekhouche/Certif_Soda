@@ -43,9 +43,5 @@ jobs:
           configuration: ../../../configuration.yml
           checks: ../../../checks.yml
          
-<<<<<<< HEAD
-         
-=======
-# test pull request         
->>>>>>> origin/main
+
 # Test Soda workflow".
