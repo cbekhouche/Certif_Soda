@@ -2,7 +2,11 @@ name: Scan for data quality
 
 on: 
   pull_request:
+<<<<<<< HEAD:.github/workflows/ci.yml
+    branches: [ main ]
+=======
     branches: [ test-soda-workflow ]
+>>>>>>> 1d7ababfe2941cba8465e9f8e816375b255b297e:GitHub/.github/workflows/ci.yml
 
 jobs:
   soda_scan:
@@ -39,5 +43,5 @@ jobs:
           configuration: ../../../configuration.yml
           checks: ../../../checks.yml
          
-         
+
 # Test Soda workflow".
