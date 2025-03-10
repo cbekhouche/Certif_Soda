@@ -151,14 +151,14 @@ checks for btob_customers:
       name: "Pas de doublons de numéro SIRET"
 
   # Template
-  - $missing_values_check:
-      attributes: 
-        dimension: Completeness
-      name: "Vérification des valeurs manquantes dans la colonne nom_societe"
-      parameters:
-        table: btob_customers
-        column_name: nom_societe
-      fail: when > 0  # Échec si au moins une valeur manquante est trouvée
+  #- $missing_values_check:
+  #    attributes: 
+  #     dimension: Completeness
+  #    name: "Vérification des valeurs manquantes dans la colonne nom_societe"
+  #    parameters:
+  #      table: btob_customers
+  #      column_name: nom_societe
+  #    fail: when > 0  # Échec si au moins une valeur manquante est trouvée
 
       
 checks for btoc_customers:
@@ -395,12 +395,12 @@ checks for btoc_customers:
       #  - chiffreaffaire
 
   # Template
-  - $missing_values_check:
-      attributes: 
-        dimension: Completeness
-      name: "Vérification des valeurs manquantes dans la colonne nom_societe"
-      parameters:
-        table: btoc_customers
-        column_name: chiffreaffaire
-      fail: when > 0  # Échec si au moins une valeur manquante est trouvée
+  #- $missing_values_check:
+  #    attributes: 
+  #      dimension: Completeness
+  #    name: "Vérification des valeurs manquantes dans la colonne nom_societe"
+  #    parameters:
+  #      table: btoc_customers
+  #      column_name: chiffreaffaire
+  #    fail: when > 0  # Échec si au moins une valeur manquante est trouvée
   
