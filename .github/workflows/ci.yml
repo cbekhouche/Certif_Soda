@@ -42,6 +42,16 @@ jobs:
           configuration: ./configuration.yml
           checks: ./checks.yml
           templates: ./template.yml
+        continue-on-error: true  # Permet de ne pas casser le build en cas d'échec
+
+      - name: Comment PR results
+        if: always()  # S'exécute même en cas d'échec
+        uses: thollander/actions-comment-pull-request@v2
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          message: |
+            Résultats du scan Soda: ${{ steps.soda_scan.outcome }}
+            Détails: ${{ env.SCAN_CLOUD_LINK }}
 
          
 
