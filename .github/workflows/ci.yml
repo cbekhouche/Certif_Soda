@@ -5,7 +5,9 @@ on:
 
     branches: [ main ]
 
-  
+permissions: # Permissions nécessaires pour commenter les PR
+  pull-requests: write
+  contents: read  
 
 jobs:
   soda_scan:
@@ -41,7 +43,7 @@ jobs:
           data_source: my_datasource
           configuration: ./configuration.yml
           checks: ./checks.yml
-          templates: ./template.yml
+         # templates: ./template.yml
         continue-on-error: true  # Permet de ne pas casser le build en cas d'échec
 
       - name: Comment PR results
