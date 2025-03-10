@@ -20,10 +20,10 @@ jobs:
         with:
           python-version: 3.9
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install soda-core soda-scientific soda-core-postgres # Adaptez le driver à votre base de données      
+     # - name: Install dependencies
+     #   run: |
+     #     python -m pip install --upgrade pip
+     #     pip install soda-core soda-scientific soda-core-postgres # Adaptez le driver à votre base de données      
 #### si ça marche sur ce scan simple je veux refaire ça avec dbt
           
 
