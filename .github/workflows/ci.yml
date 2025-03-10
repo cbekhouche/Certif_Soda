@@ -38,9 +38,10 @@ jobs:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         with:
           soda_library_version: v1.0.4
-          data_source: postgres
+          data_source: my_datasource
           configuration: ./configuration.yml
           checks: ./checks.yml
+          templates: ./template.yml
 
          
 
