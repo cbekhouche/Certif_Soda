@@ -9,6 +9,10 @@ profile columns:
     - btoc_customers.StreetAddress
     - btoc_customers.LastRefreshTime
 
+checks for example_model:
+  - row_count > 0
+  - avg(chiffre_affaires) > 150000
+
 checks for btob_customers:
 
   # Validity Metrics (fonctionnent tous)
