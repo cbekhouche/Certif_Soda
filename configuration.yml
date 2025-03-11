@@ -1,9 +1,9 @@
 data_source my_datasource:
   type: postgres
-  host: ${POSTGRES_HOST}
-  username: ${POSTGRES_USER}
-  password: ${POSTGRES_PASSWORD}
-  database: ${POSTGRES_DB}
+  host: aws-0-eu-west-3.pooler.supabase.com
+  username: postgres.qqehshljyphhoqsayegh
+  password: Dardilly2023*
+  database: postgres
   schema: public
   quote_identifiers: true
   sampler:
