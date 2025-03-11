@@ -29,6 +29,10 @@ jobs:
       - name: Run dbt
         env:
           DBT_PROFILES_DIR: ./
+          POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         run: |
           dbt deps
           dbt run
