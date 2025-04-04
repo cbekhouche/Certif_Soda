@@ -1,4 +1,4 @@
-name: Soda Scan with dbt
+name: Soda Scan without dbt transformation
 
 on:
   pull_request:
@@ -26,20 +26,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install dbt-postgres soda-core-postgres
 
-      - name: Run dbt
-        env:
-          DBT_PROFILES_DIR: ./
-          POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
-          POSTGRES_PORT: ${{ secrets.POSTGRES_PORT }}  # <-- Ajoutez cette ligne
-          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
-          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-        run: |
-          echo "Listing environment variables:"
-          printenv
-          echo "Running dbt deps"
-          dbt deps
-          dbt run
+
 
       - name: Perform Soda Scan
         uses: sodadata/soda-github-action@main
