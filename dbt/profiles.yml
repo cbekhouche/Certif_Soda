@@ -9,4 +9,5 @@ my_project:
       password: "{{ env_var('POSTGRES_PASSWORD') }}"
       dbname: "{{ env_var('POSTGRES_DB') }}"
       schema: public
+      sslmode: require  # Obligatoire pour Supabase/Cloud
       threads: 4
