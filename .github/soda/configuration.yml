@@ -1,0 +1,19 @@
+data_source my_datasource:
+  type: postgres
+  host: ${POSTGRES_HOST}
+  username: ${POSTGRES_USERNAME}
+  password: ${POSTGRES_PASSWORD}
+  database: postgres
+  schema: public
+  quote_identifiers: true
+  sampler:
+    samples_limit: 20
+    include_tables: 
+      - btob_customers
+      - btoc_customers
+      - ca_sup_100k
+
+soda_cloud:
+  host: cloud.soda.io
+  api_key_id: ${SODA_CLOUD_API_KEY}
+  api_key_secret: ${SODA_CLOUD_API_SECRET}
