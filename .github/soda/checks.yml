@@ -9,7 +9,7 @@ profile columns:
     - btoc_customers.StreetAddress
     - btoc_customers.LastRefreshTime
 
-checks for example_model:
+checks for CA_sup_100k:
   - row_count > 0
   - avg(chiffre_affaires) > 150000
 
