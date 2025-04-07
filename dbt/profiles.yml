@@ -7,6 +7,6 @@ my_project:
       port: 5432      
       user: "{{ env_var('POSTGRES_USERNAME') }}"
       password: "{{ env_var('POSTGRES_PASSWORD') }}"
-      dbname: postgres
+      dbname: "{{ env_var('POSTGRES_DB') }}"
       schema: public
       threads: 4
