@@ -11,7 +11,7 @@ data_source my_datasource:
     include_tables: 
       - btob_customers
       - btoc_customers
-      - example_model
+      - ca_sup_100k
 
 soda_cloud:
   host: cloud.soda.io
