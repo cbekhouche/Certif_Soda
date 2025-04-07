@@ -3,10 +3,10 @@ my_project:
   outputs:
     dev:
       type: postgres
-      host: ${POSTGRES_HOST}
+      host: "{{ env_var('POSTGRES_HOST') }}"
       port: 5432      
-      user: ${POSTGRES_USERNAME}
-      pass: ${POSTGRES_PASSWORD}
+      user: "{{ env_var('POSTGRES_USERNAME') }}"
+      password: "{{ env_var('POSTGRES_PASSWORD') }}"
       dbname: postgres
       schema: public
       threads: 1
