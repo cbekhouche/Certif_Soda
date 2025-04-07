@@ -31,7 +31,7 @@ jobs:
           PGPASSWORD=$POSTGRES_PASSWORD psql \
             -h $POSTGRES_HOST \
             -U $POSTGRES_USERNAME \
-            -d $POSTGRES_DATABASE \
+            -d postgres \
             -c "SELECT version();"
  
       - name: Debug dbt profiles directory
