@@ -54,6 +54,11 @@ jobs:
           dbt deps --profiles-dir ./dbt --project-dir ./dbt --log-level debug --log-format json --log-path ./custom_logs/
           dbt run --profiles-dir ./dbt --project-dir ./dbt --target dev --log-level debug --log-format json --log-path ./custom_logs/
 
+      - name: Afficher les logs
+        run: |
+          echo "=== Dernières erreurs ==="
+          cat ./custom_logs/dbt.log | grep -i error || echo "Aucune erreur détectée"
+
       - name: Check dbt logs
         run: |
           echo "=== Fichiers de logs générés ==="
