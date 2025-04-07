@@ -60,3 +60,14 @@ jobs:
           data_source: my_datasource              # corrigé
           configuration: .github/soda/configuration.yml
           checks: .github/soda/checks.yml
+          
+      - name: Generate Custom Report
+        run: |
+          pip install psycopg2-binary pandas
+          python .github/scripts/custom_report.py  # Chemin à adapter
+        env:
+          POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USERNAME }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          SODA_API_KEY: ${{ secrets.SODA_CLOUD_API_KEY }}  # À ajouter dans les secrets GitHub
