@@ -9,4 +9,4 @@ my_project:
       password: "{{ env_var('POSTGRES_PASSWORD') }}"
       dbname: postgres
       schema: public
-      threads: 1
+      threads: 4
