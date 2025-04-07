@@ -25,6 +25,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install protobuf==4.25.3
           pip install dbt-postgres==1.7.4
+
+      - name: Test PostgreSQL connection
+        run: |
+          PGPASSWORD=$POSTGRES_PASSWORD psql \
+            -h $POSTGRES_HOST \
+            -U $POSTGRES_USERNAME \
+            -d $POSTGRES_DATABASE \
+            -c "SELECT version();"
  
       - name: Debug dbt profiles directory
         run: |
