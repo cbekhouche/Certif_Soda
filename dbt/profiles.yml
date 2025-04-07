@@ -1,0 +1,12 @@
+my_project:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: ${POSTGRES_HOST}
+      port: 5432      
+      user: ${POSTGRES_USERNAME}
+      pass: ${POSTGRES_PASSWORD}
+      dbname: postgres
+      schema: public
+      threads: 1
