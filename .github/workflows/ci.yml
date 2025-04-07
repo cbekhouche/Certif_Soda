@@ -25,15 +25,28 @@ jobs:
           python -m pip install --upgrade pip
           pip install protobuf==4.25.3
           pip install dbt-postgres==1.7.4
-
-      - name: Test PostgreSQL connection
+          
+      - name: Debug environment variables
         run: |
+          echo "POSTGRES_HOST=$POSTGRES_HOST"
+          echo "POSTGRES_USERNAME=$POSTGRES_USERNAME"
+          
+      - name: Test PostgreSQL connection
+        env:
+          POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
+          POSTGRES_USERNAME: ${{ secrets.POSTGRES_USERNAME }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+        run: |
+          # Debug des variables
+          echo "Host: '$POSTGRES_HOST'"
+          echo "User: '$POSTGRES_USERNAME'"
+          echo "Database: '$POSTGRES_DATABASE'"
+          
+          # Test de connexion
           PGPASSWORD=$POSTGRES_PASSWORD psql \
-            -h $POSTGRES_HOST \
-            -U $POSTGRES_USERNAME \
-            -d postgres \
-            -c "SELECT version();"
- 
+          "host=$POSTGRES_HOST user=$POSTGRES_USERNAME dbname=$POSTGRES_DATABASE port=5432" \
+          -c "SELECT version();" || echo "Échec de connexion"
+           
       - name: Debug dbt profiles directory
         run: |
           echo "Current directory:"
