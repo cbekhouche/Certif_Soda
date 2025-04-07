@@ -48,7 +48,7 @@ jobs:
         env:
          SODA_CLOUD_API_KEY: ${{ secrets.SODA_CLOUD_API_KEY }}
          SODA_CLOUD_API_SECRET: ${{ secrets.SODA_CLOUD_API_SECRET }}
-         POSTGRES_HOST: ${{ secrets.POSTGRE_HOST }}  # Correction du nom de variable
+         POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }} 
          POSTGRES_USERNAME: ${{ secrets.POSTGRE_USERNAME }}
          POSTGRES_PASSWORD: ${{ secrets.POSTGRE_PASSWORD }}
         with:
