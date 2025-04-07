@@ -57,6 +57,6 @@ jobs:
          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
         with:
           soda_library_version: v1.0.4
-          data_source: customers_certif
+          data_source: my_datasource
           configuration: .github/soda/configuration.yml
           checks: .github/soda/checks.yml
