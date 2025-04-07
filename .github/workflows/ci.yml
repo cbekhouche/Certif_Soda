@@ -70,4 +70,5 @@ jobs:
           POSTGRES_USER: ${{ secrets.POSTGRES_USERNAME }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
-          SODA_API_KEY: ${{ secrets.SODA_CLOUD_API_KEY }}  # À ajouter dans les secrets GitHub
+          SODA_CLOUD_API_KEY: ${{ secrets.SODA_CLOUD_API_KEY }}      # À vérifier
+          SODA_CLOUD_API_SECRET: ${{ secrets.SODA_CLOUD_API_SECRET }} # À vérifier
