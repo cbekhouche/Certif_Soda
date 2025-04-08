@@ -16,7 +16,9 @@ REQUIRED_COLUMNS = [
     "column",
     "definition",
     "cloudUrl",
-    "createdAt"
+    "createdAt",
+    "datasets",
+    "attribute"
 ]
 
 # Vérification des variables d'environnement
@@ -128,7 +130,7 @@ try:
             
         # Écriture des données
         df.to_sql(
-            name="certif_soda_checks",
+            name="certif_soda_checks_results",
             con=conn,
             if_exists="replace",
             index=False,
@@ -140,13 +142,15 @@ try:
                 "column": String(255),
                 "definition": String(),
                 "cloudUrl": String(255),
-                "createdAt": DateTime(timezone=True)
+                "createdAt": DateTime(timezone=True),
+                "datasets": String(255),
+                "attribute":String(255)
             }
         )
         
         # Vérification
-        result = conn.execute(text("SELECT COUNT(*) FROM certif_soda_checks")).scalar()
-        logging.info(f"SUCCÈS: {result} lignes écrites dans certif_soda_checks")
+        result = conn.execute(text("SELECT COUNT(*) FROM certif_soda_checks_results")).scalar()
+        logging.info(f"SUCCÈS: {result} lignes écrites dans certif_soda_checks_results")
 
 except Exception as e:
     logging.exception(f"ERREUR PostgreSQL: {str(e)}")
