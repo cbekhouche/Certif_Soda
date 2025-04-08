@@ -4,15 +4,17 @@ import pandas as pd
 from sqlalchemy import create_engine, String, DateTime
 
 # Configuration
-API_URL = "https://cloud.soda.io/api/v1/checks?size=1000"  # Augmenter la taille de la pagination[6]
-DYNAMIC_COLUMNS = {
-    "id": "check_id",
-    "dataset": "dataset_name",
-    "checkName": "check_name",
-    "createdAt": "created_at",
-    "dimension": "dimension",
-    "status": "status"
-}
+API_URL = "https://cloud.soda.io/api/v1/checks?size=100"  # Augmenter la taille
+REQUIRED_COLUMNS = [
+    "id",
+    "name",
+    "evaluationStatus",
+    "lastCheckRunTime",
+    "column",
+    "definition",
+    "cloudUrl",
+    "createdAt"
+]
 
 # Vérification des secrets
 if not all(os.getenv(k) for k in ["SODA_CLOUD_API_KEY", "SODA_CLOUD_API_SECRET"]):
@@ -42,55 +44,54 @@ except Exception as e:
     print(f"ERREUR API : {str(e)}")
     exit(1)
 
-# Vérification de la structure
-if not isinstance(raw_data, dict) or "items" not in raw_data:
-    print(f"ERREUR: Réponse mal structurée. Clés disponibles : {raw_data.keys()}")
-    exit(1)
-
-# Transformation
+# Extraction des données
 try:
-    df = pd.json_normalize(raw_data["items"])
-    print(f"DEBUG - Colonnes avant renommage : {df.columns.tolist()}")
+    checks = raw_data.get("content", [])
+    df = pd.DataFrame(checks)
+
+    # Sélection des colonnes
+    if not all(col in df.columns for col in REQUIRED_COLUMNS):
+        missing = [col for col in REQUIRED_COLUMNS if col not in df.columns]
+        print(f"ERREUR : Colonnes manquantes - {missing}")
+        exit(1)
+
+    df = df[REQUIRED_COLUMNS]
     
-    # Renommage dynamique
-    df = df.rename(columns=DYNAMIC_COLUMNS)
-    df = df[[col for col in DYNAMIC_COLUMNS.values() if col in df.columns]]
-    
-    # Gestion des colonnes manquantes
-    missing = [col for col in DYNAMIC_COLUMNS.values() if col not in df.columns]
-    if missing:
-        print(f"AVERTISSEMENT : Colonnes manquantes - {missing}")
-        df = df.assign(**{col: None for col in missing})  # Crée les colonnes manquantes
-    
-    print(f"DEBUG - Données transformées :\n{df.head()}")
-    
+    # Conversion des dates
+    df['createdAt'] = pd.to_datetime(df['createdAt'])
+    df['lastCheckRunTime'] = pd.to_datetime(df['lastCheckRunTime'])
+
 except Exception as e:
-    print(f"ERREUR TRANSFORMATION : {str(e)}")
+    print(f"ERREUR Transformation : {str(e)}")
     exit(1)
 
 # Écriture PostgreSQL
 try:
     engine = create_engine(
         f"postgresql+psycopg2://{os.getenv('POSTGRES_USERNAME')}:{os.getenv('POSTGRES_PASSWORD')}"
-        f"@{os.getenv('POSTGRES_HOST')}:{os.getenv('POSTGRES_PORT', '5432')}/{os.getenv('POSTGRES_DB')}"
+        f"@{os.getenv('POSTGRES_HOST')}/{os.getenv('POSTGRES_DB')}"
     )
     
     with engine.connect() as conn:
         df.to_sql(
-            name="soda_reports",
+            name="soda_checks",
             con=conn,
             if_exists="replace",
             index=False,
             dtype={
-                "check_id": String(255),
-                "dataset_name": String(150),
-                "dimension": String(100),
-                "status": String(50),
-                "created_at": DateTime(timezone=True)
+                "id": String(255),
+                "name": String(255),
+                "evaluationStatus": String(50),
+                "lastCheckRunTime": DateTime(timezone=True),
+                "column": String(255),
+                "definition": String(1000),
+                "cloudUrl": String(255),
+                "createdAt": DateTime(timezone=True)
             }
         )
+
 except Exception as e:
-    print(f"ERREUR POSTGRESQL : {str(e)}")
+    print(f"ERREUR PostgreSQL : {str(e)}")
     exit(1)
 
-print("SUCCÈS : Données stockées dans PostgreSQL")
+print("SUCCÈS : Données stockées dans soda_checks")
