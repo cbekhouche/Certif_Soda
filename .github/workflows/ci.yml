@@ -63,7 +63,9 @@ jobs:
           
       - name: Generate Custom Report
         run: |
+          echo "Début de l'étape Generate Custom Report"    
           pip install psycopg2-binary pandas sqlalchemy==2.0.25
+          echo "Dépendances installées"
           python .github/scripts/custom_report.py  # Chemin à adapter
         env:
           POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
