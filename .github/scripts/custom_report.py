@@ -3,7 +3,7 @@ import sys
 import logging
 import requests
 import pandas as pd
-from sqlalchemy import create_engine, String, DateTime, text, inspect
+from sqlalchemy import create_engine, String, DateTime, text
 
 # Configuration du logging
 logging.basicConfig(
@@ -140,57 +140,72 @@ try:
         conn.execute(text("SELECT 1"))
         logger.info("Connexion réussie à PostgreSQL")
         
-        # Vérification de la table existante
-        inspector = inspect(engine)
-        table_exists = inspector.has_table("soda_checks")
+        # Vidage sécurisé de la table
+        conn.execute(text("TRUNCATE TABLE soda_checks RESTART IDENTITY"))
+        logger.info("Table vidée avec succès")
         
-        if table_exists:
-            old_count = conn.execute(text("SELECT COUNT(*) FROM soda_checks")).scalar()
-            logger.info(f"La table existe déjà avec {old_count} lignes")
-        else:
-            logger.info("La table n'existe pas, elle sera créée")
-            old_count = 0
-
-        # Écriture des données
-        df.to_sql(
-            name="soda_checks",
-            con=conn,
-            if_exists="replace",
-            index=False,
-            dtype={
-                "id": String(255),
-                "name": String(255),
-                "evaluationStatus": String(50),
-                "lastCheckRunTime": DateTime(timezone=True),
-                "column": String(255),
-                "definition": String(1000),
-                "cloudUrl": String(255),
-                "createdAt": DateTime(timezone=True)
-            }
-        )
+        # Écriture par chunks avec vérification
+        chunksize = 100
+        total_written = 0
         
-        # Vérification finale
-        new_count = conn.execute(text("SELECT COUNT(*) FROM soda_checks")).scalar()
+        for i in range(0, len(df), chunksize):
+            chunk = df[i:i + chunksize]
+            chunk.to_sql(
+                name="soda_checks",
+                con=conn,
+                if_exists="append",
+                index=False,
+                dtype={
+                    "id": String(255),
+                    "name": String(255),
+                    "evaluationStatus": String(50),
+                    "lastCheckRunTime": DateTime(timezone=True),
+                    "column": String(255),
+                    "definition": String(1000),
+                    "cloudUrl": String(255),
+                    "createdAt": DateTime(timezone=True)
+                }
+            )
+            total_written += len(chunk)
+            logger.info(f"Chunk {i//chunksize + 1} écrit : {len(chunk)} lignes")
         
-        if new_count != len(df):
-            logger.error(f"Écart détecté : {len(df)} lignes attendues vs {new_count} écrites")
+        # Vérification transactionnelle
+        with conn.begin():
+            db_count = conn.execute(text("SELECT COUNT(*) FROM soda_checks")).scalar()
+            logger.info(f"Comptage transactionnel : {db_count} lignes")
             
-            # Comparaison des IDs
-            db_ids = [r[0] for r in conn.execute(text("SELECT id FROM soda_checks")).fetchall()]
-            df_ids = df['id'].tolist()
+            if db_count != total_written:
+                logger.error(f"Écart critique : {db_count} vs {total_written}")
+                raise ValueError("Incohérence de données détectée")
             
-            missing_in_db = set(df_ids) - set(db_ids)
-            extra_in_db = set(db_ids) - set(df_ids)
+            # Snapshot des données
+            snapshot = conn.execute(
+                text("SELECT id,createdAt FROM soda_checks ORDER BY createdAt DESC LIMIT 5")
+            ).fetchall()
             
-            logger.error(f"IDs manquants dans la base : {list(missing_in_db)[:5]}...")
-            logger.error(f"IDs en trop dans la base : {list(extra_in_db)[:5]}...")
-            
-            sys.exit(1)
+            logger.info("Dernières entrées insérées :")
+            for row in snapshot:
+                logger.info(f"{row[0]} - {row[1]}")
         
-        logger.info(f"Écriture réussie : {new_count} lignes dans soda_checks")
-        
+        # Vérification hors transaction
+        with engine.connect() as verif_conn:
+            final_count = verif_conn.execute(text("SELECT COUNT(*) FROM soda_checks")).scalar()
+            logger.info(f"Vérification finale : {final_count} lignes")
+            
+            # Vérification via les statistiques système
+            stats = verif_conn.execute(
+                text("""
+                    SELECT n_live_tup, n_dead_tup 
+                    FROM pg_stat_user_tables 
+                    WHERE relname = 'soda_checks'
+                """)
+            ).fetchone()
+            
+            if stats:
+                logger.info(f"Statistiques PostgreSQL - Live: {stats[0]}, Dead: {stats[1]}")
+            
 except Exception as e:
-    logger.error(f"Erreur PostgreSQL : {str(e)}")
+    logger.error(f"ERREUR PostgreSQL : {str(e)}")
     sys.exit(1)
 
 logger.info("Script exécuté avec succès")
