@@ -82,13 +82,31 @@ try:
         logging.warning(f"Colonnes manquantes - {missing_columns}")
         df = df.reindex(columns=REQUIRED_COLUMNS, fill_value=None)
     
-    # Conversion JSON
+    # Conversion JSON et extraction des champs
     df['datasets'] = df['datasets'].apply(lambda x: json.dumps(x) if isinstance(x, (dict, list)) else x)
     df['attribute'] = df['attribute'].fillna('{}').apply(lambda x: json.dumps(x) if isinstance(x, (dict, list)) else x)
     
-    df = df[REQUIRED_COLUMNS]
+    # Extraction des champs des datasets
+    df['dataset_id'] = df['datasets'].apply(
+        lambda x: json.loads(x)[0]['id'] if x and json.loads(x) else None
+    )
+    df['dataset_name'] = df['datasets'].apply(
+        lambda x: json.loads(x)[0]['name'] if x and json.loads(x) else None
+    )
+    df['dataset_url'] = df['datasets'].apply(
+        lambda x: json.loads(x)[0]['cloudUrl'] if x and json.loads(x) else None
+    )
     
-    # Conversion dates
+    # Extraction des attributs
+    df['attributes'] = df['attribute'].apply(lambda x: json.loads(x) if x else {})
+    
+    # Exemple d'extraction d'attributs spécifiques
+    df['priority'] = df['attributes'].apply(lambda x: x.get('priority'))
+    df['owner'] = df['attributes'].apply(lambda x: x.get('owner'))
+    
+    df = df[REQUIRED_COLUMNS + ['dataset_id', 'dataset_name', 'dataset_url', 'priority', 'owner']]
+    
+    # Conversion des dates
     df['createdAt'] = pd.to_datetime(df['createdAt'], errors='coerce', utc=True)
     df['lastCheckRunTime'] = pd.to_datetime(df['lastCheckRunTime'], errors='coerce', utc=True)
     
@@ -140,7 +158,12 @@ try:
                 "cloudUrl": String(255),
                 "createdAt": DateTime(timezone=True),
                 "datasets": JSONB,
-                "attribute": JSONB
+                "attribute": JSONB,
+                "dataset_id": String(255),
+                "dataset_name": String(255),
+                "dataset_url": String(255),
+                "priority": String(50),
+                "owner": String(255)
             }
         )
         
