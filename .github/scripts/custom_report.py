@@ -128,7 +128,7 @@ try:
             
         # Écriture des données
         df.to_sql(
-            name="soda_checks",
+            name="certif_soda_checks",
             con=conn,
             if_exists="replace",
             index=False,
@@ -145,8 +145,8 @@ try:
         )
         
         # Vérification
-        result = conn.execute(text("SELECT COUNT(*) FROM soda_checks")).scalar()
-        logging.info(f"SUCCÈS: {result} lignes écrites dans soda_checks")
+        result = conn.execute(text("SELECT COUNT(*) FROM certif_soda_checks")).scalar()
+        logging.info(f"SUCCÈS: {result} lignes écrites dans certif_soda_checks")
 
 except Exception as e:
     logging.exception(f"ERREUR PostgreSQL: {str(e)}")
