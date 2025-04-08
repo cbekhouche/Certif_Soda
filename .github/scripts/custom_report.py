@@ -144,7 +144,7 @@ try:
             exit(1)
             
         df.to_sql(
-            name="certif_soda_checks_results",
+            name="certif_soda_checks_detailled_results",
             con=conn,
             if_exists="replace",
             index=False,
@@ -167,7 +167,7 @@ try:
             }
         )
         
-        result = conn.execute(text("SELECT COUNT(*) FROM certif_soda_checks_results")).scalar()
+        result = conn.execute(text("SELECT COUNT(*) FROM certif_soda_checks_detailled_results")).scalar()
         logging.info(f"SUCCÈS: {result} lignes écrites")
 
 except Exception as e:
