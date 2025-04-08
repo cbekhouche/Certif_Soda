@@ -139,7 +139,7 @@ try:
                 "lastCheckRunTime": DateTime(timezone=True),
                 "column": String(255),
                 "definition": String(1000),
-                "cloudUrl": String(255),
+                "cloudUrl": Text,
                 "createdAt": DateTime(timezone=True)
             }
         )
