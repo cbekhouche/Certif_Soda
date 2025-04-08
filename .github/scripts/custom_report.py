@@ -3,6 +3,11 @@ import requests
 import pandas as pd
 from sqlalchemy import create_engine, String, DateTime
 
+#Ajouter au début du script:
+import logging
+
+logging.basicConfig(level=logging.INFO)
+
 # Configuration
 API_URL = "https://cloud.soda.io/api/v1/checks?size=100"  # Taille par page
 REQUIRED_COLUMNS = [
@@ -25,7 +30,7 @@ if not all(os.getenv(k) for k in ["SODA_CLOUD_API_KEY", "SODA_CLOUD_API_SECRET"]
 all_checks = []
 page = 0
 
-print("Début de la récupération des données Soda Cloud...")
+logging.info("Début de la récupération des données Soda Cloud...")
 
 while True:
     try:
@@ -37,7 +42,7 @@ while True:
             timeout=30
         )
         
-        print(f"\nPage {page} - Statut HTTP: {response.status_code}")
+        logging.info(f"Page {page} - Statut HTTP: {response.status_code}")
         
         if response.status_code != 200:
             print(f"ERREUR API: {response.text[:500]}")
@@ -56,7 +61,7 @@ while True:
         
         # Pagination
         total_pages = data.get("totalPages", 1)
-        print(f"Page {page+1}/{total_pages} traitée - {len(checks)} éléments")
+        logging.info(f"Page {page+1}/{total_pages} traitée - {len(checks)} éléments")
         
         if page >= total_pages - 1:
             break
@@ -64,14 +69,14 @@ while True:
         page += 1
         
     except requests.exceptions.RequestException as e:
-        print(f"ERREUR Réseau/API: {str(e)}")
+        logging.exception(f"ERREUR Réseau/API: {str(e)}")
         break
     except Exception as e:
-        print(f"ERREUR Inattendue: {str(e)}")
+        logging.exception(f"ERREUR Inattendue: {str(e)}")
         break
 
 # Transformation des données
-print("\nDébut de la transformation des données...")
+logging.info("Début de la transformation des données...")
 
 try:
     df = pd.DataFrame(all_checks)
@@ -79,7 +84,7 @@ try:
     # Gestion des colonnes manquantes
     missing_columns = [col for col in REQUIRED_COLUMNS if col not in df.columns]
     if missing_columns:
-        print(f"AVERTISSEMENT: Colonnes manquantes - {missing_columns}")
+        logging.warning(f"Colonnes manquantes - {missing_columns}")
         df = df.reindex(columns=REQUIRED_COLUMNS, fill_value=None)
     
     df = df[REQUIRED_COLUMNS]
@@ -95,16 +100,16 @@ try:
     print(f"Données transformées - {len(df)} lignes")
     
 except Exception as e:
-    print(f"ERREUR Transformation: {str(e)}")
+    logging.exception(f"ERREUR Transformation: {str(e)}")
     exit(1)
 
 # Écriture dans PostgreSQL
-print("\nDébut de l'écriture dans PostgreSQL...")
+logging.info("Début de l'écriture dans PostgreSQL...")
 
 try:
     # Debug de la connexion
     conn_string = f"postgresql+psycopg2://{os.getenv('POSTGRES_USERNAME')}:****@{os.getenv('POSTGRES_HOST')}/{os.getenv('POSTGRES_DB')}"
-    print(f"Connexion à : {conn_string.replace('****', os.getenv('POSTGRES_PASSWORD', 'MOT_DE_PASSE_MASQUÉ'))}")
+    logging.info(f"Connexion à : {conn_string.replace('****', os.getenv('POSTGRES_PASSWORD', 'MOT_DE_PASSE_MASQUÉ'))}")
 
     engine = create_engine(
         f"postgresql+psycopg2://{os.getenv('POSTGRES_USERNAME')}:{os.getenv('POSTGRES_PASSWORD')}"
@@ -120,7 +125,7 @@ try:
     with engine.connect() as conn:
         # Vérification de la connexion
         if not conn.connection:
-            print("ERREUR: Échec de la connexion à PostgreSQL")
+            logging.error("Échec de la connexion à PostgreSQL")
             exit(1)
             
         # Écriture des données
@@ -143,7 +148,7 @@ try:
         
         print("Vérification de l'écriture...")
         result = conn.execute("SELECT COUNT(*) FROM soda_checks").scalar()
-        print(f"SUCCÈS: {result} lignes écrites dans soda_checks")
+        logging.info(f"SUCCÈS: {result} lignes écrites dans soda_checks")
 
 except Exception as e:
     print(f"ERREUR PostgreSQL: {str(e)}")
