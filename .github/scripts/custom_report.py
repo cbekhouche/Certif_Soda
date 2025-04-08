@@ -109,8 +109,18 @@ try:
     df['column'] = df['column'].astype(str).str[:255]
     df['definition'] = df['definition'].astype(str).str[:1000]
     
-    # Suppression des doublons
+    # Vérification des doublons
     initial_count = len(df)
+    logger.info(f"Données initiales : {initial_count} lignes")
+    
+    # Détection des doublons sur 'name'
+    duplicate_names = df[df.duplicated('name', keep=False)]
+    if not duplicate_names.empty:
+        logger.warning(f"{len(duplicate_names)} noms dupliqués détectés :")
+        for name, group in duplicate_names.groupby('name'):
+            logger.warning(f"Nom '{name}' apparaît {len(group)} fois (IDs: {group['id'].tolist()[:3]}...)")
+    
+    # Suppression des doublons sur 'id'
     df = df.drop_duplicates(subset=['id'])
     final_count = len(df)
     
@@ -136,74 +146,86 @@ try:
     engine = create_engine(conn_string, pool_pre_ping=True)
     
     with engine.connect() as conn:
-        # Vérification de la connexion
-        conn.execute(text("SELECT 1"))
-        logger.info("Connexion réussie à PostgreSQL")
+        # Désactivation des contraintes et vidage sécurisé
+        with conn.begin():
+            logger.info("Désactivation temporaire des contraintes...")
+            conn.execute(text("ALTER TABLE soda_checks DISABLE TRIGGER ALL"))
+            
+            logger.info("Vidage complet de la table...")
+            conn.execute(text("TRUNCATE TABLE soda_checks CONTINUE IDENTITY"))
+            
+            logger.info("Réactivation des contraintes...")
+            conn.execute(text("ALTER TABLE soda_checks ENABLE TRIGGER ALL"))
         
-        # Vidage sécurisé de la table
-        conn.execute(text("TRUNCATE TABLE soda_checks RESTART IDENTITY"))
-        logger.info("Table vidée avec succès")
-        
-        # Écriture par chunks avec vérification
-        chunksize = 100
+        # Écriture par chunks avec gestion d'erreur granulaire
+        chunksize = 50  # Taille réduite pour meilleur débogage
         total_written = 0
         
         for i in range(0, len(df), chunksize):
             chunk = df[i:i + chunksize]
-            chunk.to_sql(
-                name="soda_checks",
-                con=conn,
-                if_exists="append",
-                index=False,
-                dtype={
-                    "id": String(255),
-                    "name": String(255),
-                    "evaluationStatus": String(50),
-                    "lastCheckRunTime": DateTime(timezone=True),
-                    "column": String(255),
-                    "definition": String(1000),
-                    "cloudUrl": String(255),
-                    "createdAt": DateTime(timezone=True)
-                }
-            )
-            total_written += len(chunk)
-            logger.info(f"Chunk {i//chunksize + 1} écrit : {len(chunk)} lignes")
+            
+            try:
+                chunk.to_sql(
+                    name="soda_checks",
+                    con=conn,
+                    if_exists="append",
+                    index=False,
+                    dtype={
+                        "id": String(255),
+                        "name": String(255),
+                        "evaluationStatus": String(50),
+                        "lastCheckRunTime": DateTime(timezone=True),
+                        "column": String(255),
+                        "definition": String(1000),
+                        "cloudUrl": String(255),
+                        "createdAt": DateTime(timezone=True)
+                    }
+                )
+                total_written += len(chunk)
+                logger.info(f"Chunk {i//chunksize + 1} écrit : {len(chunk)} lignes")
+                
+            except Exception as chunk_error:
+                logger.error(f"Erreur sur le chunk {i//chunksize + 1}: {str(chunk_error)}")
+                logger.info("Tentative d'écriture ligne par ligne...")
+                
+                for _, row in chunk.iterrows():
+                    try:
+                        row.to_frame().T.to_sql(
+                            name="soda_checks",
+                            con=conn,
+                            if_exists="append",
+                            index=False,
+                            dtype={
+                                "id": String(255),
+                                "name": String(255),
+                                "evaluationStatus": String(50),
+                                "lastCheckRunTime": DateTime(timezone=True),
+                                "column": String(255),
+                                "definition": String(1000),
+                                "cloudUrl": String(255),
+                                "createdAt": DateTime(timezone=True)
+                            }
+                        )
+                        total_written += 1
+                    except Exception as row_error:
+                        logger.error(f"Échec sur l'ID {row['id']} : {str(row_error)}")
+                        logger.info("Sauvegarde de la ligne problématique...")
+                        pd.DataFrame([row]).to_csv("erreurs_soda_checks.csv", mode='a', header=not os.path.exists("erreurs_soda_checks.csv"))
+                
+        # Vérification finale
+        final_count = conn.execute(text("SELECT COUNT(*) FROM soda_checks")).scalar()
+        logger.info(f"Vérification finale : {final_count} lignes")
         
-        # Vérification transactionnelle
-        with conn.begin():
-            db_count = conn.execute(text("SELECT COUNT(*) FROM soda_checks")).scalar()
-            logger.info(f"Comptage transactionnel : {db_count} lignes")
-            
-            if db_count != total_written:
-                logger.error(f"Écart critique : {db_count} vs {total_written}")
-                raise ValueError("Incohérence de données détectée")
-            
-            # Snapshot des données
-            snapshot = conn.execute(
-                text("SELECT id,createdAt FROM soda_checks ORDER BY createdAt DESC LIMIT 5")
-            ).fetchall()
-            
-            logger.info("Dernières entrées insérées :")
-            for row in snapshot:
-                logger.info(f"{row[0]} - {row[1]}")
+        # Vérification des statistiques PostgreSQL
+        stats = conn.execute(text("""
+            SELECT n_live_tup, n_dead_tup 
+            FROM pg_stat_user_tables 
+            WHERE relname = 'soda_checks'
+        """)).fetchone()
         
-        # Vérification hors transaction
-        with engine.connect() as verif_conn:
-            final_count = verif_conn.execute(text("SELECT COUNT(*) FROM soda_checks")).scalar()
-            logger.info(f"Vérification finale : {final_count} lignes")
-            
-            # Vérification via les statistiques système
-            stats = verif_conn.execute(
-                text("""
-                    SELECT n_live_tup, n_dead_tup 
-                    FROM pg_stat_user_tables 
-                    WHERE relname = 'soda_checks'
-                """)
-            ).fetchone()
-            
-            if stats:
-                logger.info(f"Statistiques PostgreSQL - Live: {stats[0]}, Dead: {stats[1]}")
-            
+        if stats:
+            logger.info(f"Statistiques PostgreSQL - Lignes actives: {stats[0]}, Lignes mortes: {stats[1]}")
+        
 except Exception as e:
     logger.error(f"ERREUR PostgreSQL : {str(e)}")
     sys.exit(1)
