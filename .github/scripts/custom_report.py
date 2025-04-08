@@ -4,6 +4,8 @@ import logging
 import requests
 import pandas as pd
 from sqlalchemy import create_engine, String, DateTime, text
+from datetime import datetime, timezone
+import re  # Import pour les regex
 
 # Configuration du logging
 logging.basicConfig(
@@ -92,45 +94,43 @@ logger.info("Transformation des données...")
 
 try:
     df = pd.DataFrame(all_checks)
-    
+
     # Vérification des colonnes
     missing_cols = [col for col in REQUIRED_COLUMNS if col not in df.columns]
     if missing_cols:
         logger.warning(f"Colonnes manquantes : {missing_cols}")
         df = df.reindex(columns=REQUIRED_COLUMNS, fill_value=None)
-    
+
     df = df[REQUIRED_COLUMNS]
-    
-    # Nettoyage des données
+
+    # Extraction du dataset
+    def extract_dataset(definition):
+        match = re.search(r"checks for ([\w_]+)", definition)
+        return match.group(1) if match else None
+
+    df['dataset'] = df['definition'].apply(extract_dataset)
+
+    # Nettoyage des colonnes
     df['createdAt'] = pd.to_datetime(df['createdAt'], errors='coerce', utc=True)
     df['lastCheckRunTime'] = pd.to_datetime(df['lastCheckRunTime'], errors='coerce', utc=True)
-    
     df['evaluationStatus'] = df['evaluationStatus'].astype(str).str[:50]
     df['column'] = df['column'].astype(str).str[:255]
     df['definition'] = df['definition'].astype(str).str[:1000]
-    
-    # Vérification des doublons
+    df['name'] = df['name'].astype(str).str[:255]
+    df['dataset'] = df['dataset'].astype(str).str[:255]
+
+    # Vérification et suppression des doublons
     initial_count = len(df)
     logger.info(f"Données initiales : {initial_count} lignes")
-    
-    # Détection des doublons sur 'name'
-    duplicate_names = df[df.duplicated('name', keep=False)]
-    if not duplicate_names.empty:
-        logger.warning(f"{len(duplicate_names)} noms dupliqués détectés :")
-        for name, group in duplicate_names.groupby('name'):
-            logger.warning(f"Nom '{name}' apparaît {len(group)} fois (IDs: {group['id'].tolist()[:3]}...)")
-    
-    # Suppression des doublons sur 'id'
     df = df.drop_duplicates(subset=['id'])
     final_count = len(df)
-    
     logger.info(f"Données transformées : {final_count} lignes ({initial_count - final_count} doublons supprimés)")
-    
+
 except Exception as e:
     logger.error(f"Erreur de transformation : {str(e)}")
     sys.exit(1)
 
-# Connexion PostgreSQL
+# Connexion PostgreSQL et création de table
 logger.info("Connexion à PostgreSQL...")
 
 try:
@@ -146,19 +146,28 @@ try:
     engine = create_engine(conn_string, pool_pre_ping=True)
     
     with engine.connect() as conn:
-        # Désactivation des contraintes et vidage sécurisé
-        with conn.begin():
-            logger.info("Désactivation temporaire des contraintes...")
-            conn.execute(text("ALTER TABLE soda_checks DISABLE TRIGGER ALL"))
-            
-            logger.info("Vidage complet de la table...")
-            conn.execute(text("TRUNCATE TABLE soda_checks CONTINUE IDENTITY"))
-            
-            logger.info("Réactivation des contraintes...")
-            conn.execute(text("ALTER TABLE soda_checks ENABLE TRIGGER ALL"))
+        # Suppression et recréation de la table
+        conn.execute(text("DROP TABLE IF EXISTS soda_checks CASCADE"))
         
-        # Écriture par chunks avec gestion d'erreur granulaire
-        chunksize = 50  # Taille réduite pour meilleur débogage
+        create_table_query = """
+        CREATE TABLE soda_checks (
+            id VARCHAR(255) PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            evaluationStatus VARCHAR(50),
+            lastCheckRunTime TIMESTAMP WITH TIME ZONE,
+            "column" VARCHAR(255),
+            definition TEXT,
+            cloudUrl VARCHAR(255),
+            createdAt TIMESTAMP WITH TIME ZONE,
+            dataset VARCHAR(255)  -- Ajout de la colonne dataset
+        );
+        """
+        
+        conn.execute(text(create_table_query))
+        logger.info("Table soda_checks recréée avec succès")
+
+        # Écriture des données
+        chunksize = 50
         total_written = 0
         
         for i in range(0, len(df), chunksize):
@@ -178,19 +187,21 @@ try:
                         "column": String(255),
                         "definition": String(1000),
                         "cloudUrl": String(255),
-                        "createdAt": DateTime(timezone=True)
+                        "createdAt": DateTime(timezone=True),
+                        "dataset": String(255)  # Ajout de la colonne dataset
                     }
                 )
                 total_written += len(chunk)
                 logger.info(f"Chunk {i//chunksize + 1} écrit : {len(chunk)} lignes")
-                
+            
             except Exception as chunk_error:
                 logger.error(f"Erreur sur le chunk {i//chunksize + 1}: {str(chunk_error)}")
                 logger.info("Tentative d'écriture ligne par ligne...")
                 
                 for _, row in chunk.iterrows():
                     try:
-                        row.to_frame().T.to_sql(
+                        row_data = row.to_frame().T
+                        row_data.to_sql(
                             name="soda_checks",
                             con=conn,
                             if_exists="append",
@@ -203,20 +214,21 @@ try:
                                 "column": String(255),
                                 "definition": String(1000),
                                 "cloudUrl": String(255),
-                                "createdAt": DateTime(timezone=True)
+                                "createdAt": DateTime(timezone=True),
+                                "dataset": String(255)  # Ajout de la colonne dataset
                             }
                         )
                         total_written += 1
                     except Exception as row_error:
                         logger.error(f"Échec sur l'ID {row['id']} : {str(row_error)}")
                         logger.info("Sauvegarde de la ligne problématique...")
-                        pd.DataFrame([row]).to_csv("erreurs_soda_checks.csv", mode='a', header=not os.path.exists("erreurs_soda_checks.csv"))
+                        row.to_frame().T.to_csv("erreurs_soda_checks.csv", mode='a', header=not os.path.exists("erreurs_soda_checks.csv"))
                 
         # Vérification finale
         final_count = conn.execute(text("SELECT COUNT(*) FROM soda_checks")).scalar()
         logger.info(f"Vérification finale : {final_count} lignes")
         
-        # Vérification des statistiques PostgreSQL
+        # Vérification des statistiques
         stats = conn.execute(text("""
             SELECT n_live_tup, n_dead_tup 
             FROM pg_stat_user_tables 
@@ -226,6 +238,21 @@ try:
         if stats:
             logger.info(f"Statistiques PostgreSQL - Lignes actives: {stats[0]}, Lignes mortes: {stats[1]}")
         
+        # Ajout de la génération de rapports
+        logger.info("Génération des rapports...")
+
+        # Groupement par dataset
+        dataset_report = pd.pivot_table(df, index="dataset", values="id", aggfunc="count", fill_value=0)
+        logger.info("\nRapport par dataset:\n" + dataset_report.to_string())
+
+        # Groupement par dimension
+        dimension_report = pd.pivot_table(df, index="column", values="id", aggfunc="count", fill_value=0)
+        logger.info("\nRapport par dimension:\n" + dimension_report.to_string())
+
+        # Groupement par checks
+        checks_report = pd.pivot_table(df, index="name", values="id", aggfunc="count", fill_value=0)
+        logger.info("\nRapport par checks:\n" + checks_report.to_string())
+
 except Exception as e:
     logger.error(f"ERREUR PostgreSQL : {str(e)}")
     sys.exit(1)
