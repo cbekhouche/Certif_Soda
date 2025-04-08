@@ -1,15 +1,20 @@
 import os
+import sys
+import logging
 import requests
 import pandas as pd
-from sqlalchemy import create_engine, String, DateTime
+from sqlalchemy import create_engine, String, DateTime, text, inspect
 
-#Ajouter au début du script:
-import logging
-
-logging.basicConfig(level=logging.INFO)
+# Configuration du logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+logger = logging.getLogger(__name__)
 
 # Configuration
-API_URL = "https://cloud.soda.io/api/v1/checks?size=100"  # Taille par page
+API_URL = "https://cloud.soda.io/api/v1/checks?size=100"
 REQUIRED_COLUMNS = [
     "id",
     "name",
@@ -22,19 +27,28 @@ REQUIRED_COLUMNS = [
 ]
 
 # Vérification des variables d'environnement
-if not all(os.getenv(k) for k in ["SODA_CLOUD_API_KEY", "SODA_CLOUD_API_SECRET"]):
-    print("ERREUR: Clés API manquantes dans les variables d'environnement")
-    exit(1)
+logger.info("Vérification des variables d'environnement...")
+required_env_vars = [
+    "SODA_CLOUD_API_KEY",
+    "SODA_CLOUD_API_SECRET",
+    "POSTGRES_HOST",
+    "POSTGRES_USER",
+    "POSTGRES_PASSWORD",
+    "POSTGRES_DB"
+]
+
+missing_vars = [var for var in required_env_vars if not os.getenv(var)]
+if missing_vars:
+    logger.error(f"Variables manquantes : {missing_vars}")
+    sys.exit(1)
 
 # Récupération des données avec pagination
+logger.info("Début de la collecte des données Soda Cloud...")
 all_checks = []
 page = 0
 
-logging.info("Début de la récupération des données Soda Cloud...")
-
 while True:
     try:
-        # Requête paginée
         response = requests.get(
             f"{API_URL}&page={page}",
             auth=(os.getenv("SODA_CLOUD_API_KEY"), os.getenv("SODA_CLOUD_API_SECRET")),
@@ -42,26 +56,24 @@ while True:
             timeout=30
         )
         
-        logging.info(f"Page {page} - Statut HTTP: {response.status_code}")
+        logger.info(f"Page {page} - Statut HTTP: {response.status_code}")
         
         if response.status_code != 200:
-            print(f"ERREUR API: {response.text[:500]}")
+            logger.error(f"Erreur API : {response.text[:200]}...")
             break
             
         data = response.json()
         
-        # Validation de la structure de la réponse
         if not isinstance(data, dict) or "content" not in data:
-            print("ERREUR: Structure API inattendue")
-            print(f"Clés disponibles: {data.keys()}")
+            logger.error("Format de réponse API inattendu")
+            logger.debug(f"Clés reçues : {data.keys()}")
             break
             
         checks = data.get("content", [])
         all_checks.extend(checks)
         
-        # Pagination
         total_pages = data.get("totalPages", 1)
-        logging.info(f"Page {page+1}/{total_pages} traitée - {len(checks)} éléments")
+        logger.info(f"Page {page+1}/{total_pages} traitée - {len(checks)} éléments")
         
         if page >= total_pages - 1:
             break
@@ -69,65 +81,76 @@ while True:
         page += 1
         
     except requests.exceptions.RequestException as e:
-        logging.exception(f"ERREUR Réseau/API: {str(e)}")
-        break
+        logger.error(f"Erreur réseau : {str(e)}")
+        sys.exit(1)
     except Exception as e:
-        logging.exception(f"ERREUR Inattendue: {str(e)}")
-        break
+        logger.error(f"Erreur inattendue : {str(e)}")
+        sys.exit(1)
 
 # Transformation des données
-logging.info("Début de la transformation des données...")
+logger.info("Transformation des données...")
 
 try:
     df = pd.DataFrame(all_checks)
     
-    # Gestion des colonnes manquantes
-    missing_columns = [col for col in REQUIRED_COLUMNS if col not in df.columns]
-    if missing_columns:
-        logging.warning(f"Colonnes manquantes - {missing_columns}")
+    # Vérification des colonnes
+    missing_cols = [col for col in REQUIRED_COLUMNS if col not in df.columns]
+    if missing_cols:
+        logger.warning(f"Colonnes manquantes : {missing_cols}")
         df = df.reindex(columns=REQUIRED_COLUMNS, fill_value=None)
     
     df = df[REQUIRED_COLUMNS]
     
-    # Conversion des dates avec gestion des erreurs
+    # Nettoyage des données
     df['createdAt'] = pd.to_datetime(df['createdAt'], errors='coerce', utc=True)
     df['lastCheckRunTime'] = pd.to_datetime(df['lastCheckRunTime'], errors='coerce', utc=True)
     
-    # Nettoyage des données
     df['evaluationStatus'] = df['evaluationStatus'].astype(str).str[:50]
     df['column'] = df['column'].astype(str).str[:255]
+    df['definition'] = df['definition'].astype(str).str[:1000]
     
-    print(f"Données transformées - {len(df)} lignes")
+    # Suppression des doublons
+    initial_count = len(df)
+    df = df.drop_duplicates(subset=['id'])
+    final_count = len(df)
+    
+    logger.info(f"Données transformées : {final_count} lignes ({initial_count - final_count} doublons supprimés)")
     
 except Exception as e:
-    logging.exception(f"ERREUR Transformation: {str(e)}")
-    exit(1)
+    logger.error(f"Erreur de transformation : {str(e)}")
+    sys.exit(1)
 
-# Écriture dans PostgreSQL
-logging.info("Début de l'écriture dans PostgreSQL...")
+# Connexion PostgreSQL
+logger.info("Connexion à PostgreSQL...")
 
 try:
-    # Debug de la connexion
-    conn_string = f"postgresql+psycopg2://{os.getenv('POSTGRES_USERNAME')}:****@{os.getenv('POSTGRES_HOST')}/{os.getenv('POSTGRES_DB')}"
-    logging.info(f"Connexion à : {conn_string.replace('****', os.getenv('POSTGRES_PASSWORD', 'MOT_DE_PASSE_MASQUÉ'))}")
-
-    engine = create_engine(
-        f"postgresql+psycopg2://{os.getenv('POSTGRES_USERNAME')}:{os.getenv('POSTGRES_PASSWORD')}"
-        f"@{os.getenv('POSTGRES_HOST')}/{os.getenv('POSTGRES_DB')}?sslmode=require",
-        connect_args={
-            "connect_timeout": 5,
-            "keepalives": 1,
-            "keepalives_idle": 30,
-            "keepalives_interval": 10
-        }
+    conn_string = (
+        f"postgresql+psycopg2://{os.getenv('POSTGRES_USER')}:{os.getenv('POSTGRES_PASSWORD')}"
+        f"@{os.getenv('POSTGRES_HOST')}/{os.getenv('POSTGRES_DB')}"
+        "?sslmode=require"
+        "&connect_timeout=5"
+        "&keepalives=1"
+        "&keepalives_idle=30"
     )
+    
+    engine = create_engine(conn_string, pool_pre_ping=True)
     
     with engine.connect() as conn:
         # Vérification de la connexion
-        if not conn.connection:
-            logging.error("Échec de la connexion à PostgreSQL")
-            exit(1)
-            
+        conn.execute(text("SELECT 1"))
+        logger.info("Connexion réussie à PostgreSQL")
+        
+        # Vérification de la table existante
+        inspector = inspect(engine)
+        table_exists = inspector.has_table("soda_checks")
+        
+        if table_exists:
+            old_count = conn.execute(text("SELECT COUNT(*) FROM soda_checks")).scalar()
+            logger.info(f"La table existe déjà avec {old_count} lignes")
+        else:
+            logger.info("La table n'existe pas, elle sera créée")
+            old_count = 0
+
         # Écriture des données
         df.to_sql(
             name="soda_checks",
@@ -146,10 +169,28 @@ try:
             }
         )
         
-        print("Vérification de l'écriture...")
-        result = conn.execute("SELECT COUNT(*) FROM soda_checks").scalar()
-        logging.info(f"SUCCÈS: {result} lignes écrites dans soda_checks")
-
+        # Vérification finale
+        new_count = conn.execute(text("SELECT COUNT(*) FROM soda_checks")).scalar()
+        
+        if new_count != len(df):
+            logger.error(f"Écart détecté : {len(df)} lignes attendues vs {new_count} écrites")
+            
+            # Comparaison des IDs
+            db_ids = [r[0] for r in conn.execute(text("SELECT id FROM soda_checks")).fetchall()]
+            df_ids = df['id'].tolist()
+            
+            missing_in_db = set(df_ids) - set(db_ids)
+            extra_in_db = set(db_ids) - set(df_ids)
+            
+            logger.error(f"IDs manquants dans la base : {list(missing_in_db)[:5]}...")
+            logger.error(f"IDs en trop dans la base : {list(extra_in_db)[:5]}...")
+            
+            sys.exit(1)
+        
+        logger.info(f"Écriture réussie : {new_count} lignes dans soda_checks")
+        
 except Exception as e:
-    print(f"ERREUR PostgreSQL: {str(e)}")
-    exit(1)
+    logger.error(f"Erreur PostgreSQL : {str(e)}")
+    sys.exit(1)
+
+logger.info("Script exécuté avec succès")
