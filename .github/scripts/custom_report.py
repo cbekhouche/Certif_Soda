@@ -4,7 +4,8 @@ import pandas as pd
 from sqlalchemy import create_engine, String, DateTime
 
 # Configuration
-API_URL = "https://cloud.soda.io/api/v1/reporting/checks"
+# Correction dans le script
+API_URL = "https://cloud.soda.io/api/v1/checks"  # <-- URL corrigée
 REQUIRED_COLUMNS = ["id", "dataset", "dimension", "checkName", "status", "createdAt"]
 
 # Vérification des secrets
