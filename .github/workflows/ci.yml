@@ -36,10 +36,10 @@ jobs:
  
       - name: Run dbt commands
         env:
-            POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
-            POSTGRES_USERNAME: ${{ secrets.POSTGRES_USERNAME }}
-            POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-            POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
+          POSTGRES_USERNAME: ${{ secrets.POSTGRES_USERNAME }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
         run: |
           dbt debug --profiles-dir ./dbt --project-dir ./dbt
           dbt deps --profiles-dir ./dbt --project-dir ./dbt
