@@ -138,8 +138,8 @@ try:
                 "evaluationStatus": String(50),
                 "lastCheckRunTime": DateTime(timezone=True),
                 "column": String(255),
-                "definition": String(1000),
-                "cloudUrl": Text,
+                "definition": String(),
+                "cloudUrl": String(255),
                 "createdAt": DateTime(timezone=True)
             }
         )
